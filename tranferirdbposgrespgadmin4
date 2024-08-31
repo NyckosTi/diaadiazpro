@@ -1,5 +1,7 @@
 Passo a Passo para migrar banco no pgAdmin4
 
+Vídeo tutorial: https://youtu.be/I8vxMryqM5o
+
 Observações Importantes: Lei o documento com atenção até o final antes de replicar o passo a passo.
 
 	Backup Completo: Certifique-se de que você possui um backup completo e atualizado antes de truncar qualquer tabela.
