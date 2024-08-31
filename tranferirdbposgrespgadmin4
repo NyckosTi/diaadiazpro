@@ -1,0 +1,145 @@
+Passo a Passo para migrar banco no pgAdmin4
+
+Observações Importantes: Lei o documento com atenção até o final antes de replicar o passo a passo.
+
+	Backup Completo: Certifique-se de que você possui um backup completo e atualizado antes de truncar qualquer tabela.
+
+	Seguindo estes passos, você conseguirá truncar todas as tabelas do seu banco de dados e restaurar a base já alimentada 	no pgAdmin4 com segurança.
+
+	Verificar Conexões Ativas: Certifique-se de que nenhuma conexão ativa esteja usando as tabelas enquanto realiza o 	truncamento ou a restauração. Para o Zpro rode o "pm2 stop all" por segurança
+
+	Permissões Adequadas: Assegure-se de que você tem permissões suficientes para truncar tabelas e restaurar backups no 	banco de dados.
+
+Parte 1: Backup
+
+	Inicie o pgAdmin4 e conecte-se ao servidor onde o banco de dados está hospedado.
+
+	No painel de navegação à esquerda, expanda a árvore de servidores até encontrar o banco de dados que deseja fazer 	backup.
+
+	Clique com o botão direito no nome do banco de dados, no menu de contexto, selecione Backup
+
+Configurar as Opções de Backup:
+
+Na janela Backup Database configure as seguintes opções:
+
+General:
+File Name: Escolha o local onde deseja salvar o arquivo de backup. Clique no ícone de pasta ao lado para selecionar o diretório e digitar o nome do arquivo. É recomendável incluir a data no nome do arquivo para facilitar a identificação (por exemplo, meu_banco_2024-08-24
+
+	Format: Selecione o formato de backup desejado. Existem três opções principais:
+
+	Custom: Este é o formato mais comum e recomendado porque permite a restauração de objetos específicos e é geralmente 	mais rápido e eficiente. Ideal para backups regulares.
+
+	Tar: Também é um formato útil para backups, especialmente se você quiser um único arquivo que contenha todo o 	backup.
+
+	Plain: Cria um arquivo de script SQL contendo todos os comandos necessários para recriar o banco de dados. Este formato não permite restaurar objetos específicos e é geralmente maior e mais lento de restaurar.
+
+	Encoding: Selecione a codificação, geralmente UTF8 para compatibilidade universal(opcional)
+
+	Role Name: Selecione o nome do usuário que será o dono do backup (opcional, geralmente não é necessário alterar).
+
+	
+Data Options:
+	Blobs: Marque se o banco de dados contém objetos grandes que precisam ser incluídos no backup.
+
+	No Privileges: Se você não deseja incluir comandos de privilégios no backup.
+
+	Data Only: Escolha se você deseja fazer backup apenas dos dados
+
+	Schema Only:  Escolha se você deseja fazer backup apenas da estrutura do banco de dados (schema)
+
+	Para um backup completo, não marque nenhuma das opções nem nesta e nem nas próximas abas
+
+Iniciar o Backup:
+
+Parte 2: Restauração do backup
+
+	Conecte-se ao seu banco de dados que você deseja restaurar. No painel à esquerda, expanda a árvore de servidores para 	encontrar o banco de dados desejado.
+	Clique com o botão direito no banco de dados que você deseja truncar e clique em Query Tool para abrir uma nova janela 	de consulta SQL.
+
+Preparação da base:
+	
+	Para restaurar o banco completo você precisa truncar temporariamente as tabelas, e para truncar as tabelas com chaves estrangeiras, você precisará desabilitar temporariamente as restrições de chave 	estrangeira.
+
+Desabilitar as restrições de Chave Estrangeira:
+Execute a seguinte query SQL para isso:
+
+DO
+$$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'ALTER TABLE ' || quote_ident(r.tablename) || ' DISABLE TRIGGER ALL';
+    END LOOP;
+END
+$$;
+
+Truncar Todas as Tabelas:
+Execute a query abaixo para truncar todas as tabelas no esquema 'public' (ou altere para o nome do esquema desejado):
+Este script irá truncar todas as tabelas no esquema 'public' e remover todas as suas entradas.
+
+DO
+$$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' CASCADE';
+    END LOOP;
+END
+$$;
+
+Parte 3: Restaurar a Base de Dados
+Clique com o botão direito no banco de dados onde deseja restaurar os dados no painel de navegação a esquerda. Selecione Restore do menu de contexto.
+
+Na janela Restore configure as seguintes opções:
+
+	Backup File: Selecione o arquivo de backup que você deseja restaurar.
+
+	Format: Escolha o formato de backup correto (Geralmente, "Custom or tar").
+
+	Role Name: Escolha o usuário que será o dono dos objetos restaurados (opcional).
+
+Aba Data Options:
+
+	Data Only: Escolha se você deseja restaurar apenas os dados
+	Para restaurar o backup completo, não marque nenhuma das opções nem nesta e nem nas próximas abas
+
+	Clique em Restore para iniciar o processo de restauração.
+
+Aguarde até que a restauração seja concluída. Você verá um log no painel inferior da janela que você pode abrir para acompanhar o progresso da restauração.
+
+Reabilitar as Restrições de Chave Estrangeira:
+Depois de restaurar o banco, reabilite as restrições de chave estrangeira com a seguinte query:
+
+DO
+$$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        EXECUTE 'ALTER TABLE ' || quote_ident(r.tablename) || ' ENABLE TRIGGER ALL';
+    END LOOP;
+END
+$$;
+
+Se você desejar aprofundar e contribuir com o conteúdo segue as referências
+
+Referências:
+https://www.pgadmin.org/docs/pgadmin4/development/import_export_data.html
+
+https://www.pgadmin.org/docs/pgadmin4/development/import_export_servers.html#:~:text=Using%20pgAdmin%204%20GUI%C2%B6,in%20case%20of%20Import%20Servers.
+
+https://cloud.google.com/sql/docs/postgres/import-export/import-export-dmp?hl=pt-br#:~:text=Importar%20de%20um%20arquivo%20dump%20criado%20com%20o%20formato%20custom,See%20more%20code%20actions.&text=O%20p%C3%B3s%2Dprocessamento%20de%20coment%C3%A1rios,toc%22.
+
+https://hevodata.com/learn/export-data-pgadmin/#:~:text=Step%201:%20Visit%20your%20schema,data%20pgAdmin%20window%20will%20appear.
+
+https://www.pgadmin.org/docs/pgadmin4/6.21/backup_dialog.html#:~:text=pgAdmin%20uses%20the%20pg_dump%20utility,to%20restore%20an%20archived%20backup.
+
+https://www.pgsclusters.com/docs/postgresql/Migrating%20a%20PostgreSQL%20Database1570581707.html
+
+https://www.linkedin.com/pulse/how-transfer-postgresql-database-another-server-using-lebedenko/
+
+https://aiven.io/docs/products/postgresql/howto/connect-pgadmin
+
+https://docs.aws.amazon.com/pt_br/lightsail/latest/userguide/amazon-lightsail-importing-data-into-your-postgres-database.html
